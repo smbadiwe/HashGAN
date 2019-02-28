@@ -152,7 +152,8 @@ def forward_all(session, model, data_generator, size, cfg):
     outputs, labels = [], []
     for image, label in data_generator():
         feed_dict = {model.labeled_real_data_holder: image, model.labeled_labels_holder: label}
-        outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
+        # outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
+        outputs.append(session.run(model.disc_real_acgan.disc_real_acgan, feed_dict=feed_dict))
         labels.append(label)
     return EasyDict(output=np.array(outputs).reshape([-1, cfg.MODEL.HASH_DIM])[:size, :],
                     label=np.array(labels).reshape([-1, cfg.DATA.LABEL_DIM])[:size, :])
