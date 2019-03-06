@@ -30,6 +30,18 @@ from lib.criterion import cross_entropy
 from lib.architecture import generator, discriminator
 from lib.config import config, update_and_inference_config
 
+from sklearn.manifold import TSNE
+# import seaborn as sns
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+# from tsne import tsne
+import pandas as pd
+
+# from plotnine import *
+# from plotnine.data import *
+
+# sns.set()
+
 
 # noinspection PyAttributeOutsideInit
 class Model(object):
@@ -69,8 +81,8 @@ class Model(object):
                                                 normed=self.cfg.TRAIN.NORMED_CROSS_ENTROPY)
         self.cost_disc_acgan = self.cost_disc_acgan_rr
         summary_list_disc = [
-                tf.summary.scalar('cost_disc_acgan_rr', self.cost_disc_acgan_rr),
-                tf.summary.scalar('cost_disc_acgan', self.cost_disc_acgan)]
+            tf.summary.scalar('cost_disc_acgan_rr', self.cost_disc_acgan_rr),
+            tf.summary.scalar('cost_disc_acgan', self.cost_disc_acgan)]
         # real vs fake acgan loss, fake can't influence real.
         if self.cfg.TRAIN.ACGAN_SCALE_FAKE != 0:
             self.cost_disc_acgan_fr = cross_entropy(disc_acgan_all[pos_start:pos_middle], self.labeled_labels_holder,
@@ -85,7 +97,8 @@ class Model(object):
 
         # disciminator wgan loss
         if self.cfg.TRAIN.WGAN_SCALE != 0.0:
-            self.cost_disc_wgan_l = tf.reduce_mean(disc_wgan_all[pos_middle:]) - tf.reduce_mean(disc_wgan_all[:pos_middle])
+            self.cost_disc_wgan_l = tf.reduce_mean(disc_wgan_all[pos_middle:]) - tf.reduce_mean(
+                disc_wgan_all[:pos_middle])
             self.cost_disc_wgan_gp = self.gradient_penalty(all_data[:pos_middle], all_data[pos_middle:])
             self.cost_disc_wgan = self.cost_disc_wgan_l + self.cfg.TRAIN.WGAN_SCALE_GP * self.cost_disc_wgan_gp
             self.cost_disc += self.cfg.TRAIN.WGAN_SCALE * self.cost_disc_wgan
@@ -152,20 +165,96 @@ def forward_all(session, model, data_generator, size, cfg):
     outputs, labels = [], []
     for image, label in data_generator():
         feed_dict = {model.labeled_real_data_holder: image, model.labeled_labels_holder: label}
-        # outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
-        outputs.append(session.run(model.disc_real_acgan.disc_real_acgan, feed_dict=feed_dict))
+        outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
         labels.append(label)
     return EasyDict(output=np.array(outputs).reshape([-1, cfg.MODEL.HASH_DIM])[:size, :],
                     label=np.array(labels).reshape([-1, cfg.DATA.LABEL_DIM])[:size, :])
 
 
 def evaluate(session, model, dataloader, cfg):
-    db = forward_all(session, model, dataloader.db_gen, cfg.DATA.DB_SIZE, cfg)
-    test = forward_all(session, model, dataloader.test_gen, cfg.DATA.TEST_SIZE, cfg)
+    import pickle
+    import gzip
+    db_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")
+    if os.path.exists(db_dump):
+        with gzip.GzipFile(db_dump, "rb") as f:
+            db = pickle.load(f)
+    else:
+        db = forward_all(session, model, dataloader.db_gen, cfg.DATA.DB_SIZE, cfg)
+        with gzip.GzipFile(db_dump, "wb") as f:
+            pickle.dump(db, f)
+    print("---> db:", db.output.shape)
+    print("---> db label:", db.label.shape)
+
+    test_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "test.pkl.gz")
+    if os.path.exists(test_dump):
+        with gzip.GzipFile(test_dump, "rb") as f:
+            test = pickle.load(f)
+    else:
+        test = forward_all(session, model, dataloader.test_gen, cfg.DATA.TEST_SIZE, cfg)
+        with gzip.GzipFile(test_dump, "wb") as f:
+            pickle.dump(test, f)
+    print("---> test:", test.output.shape)
+    print("---> test label:", test.label.shape)
+
+    draw = False
+
+    if draw:
+        labels = np.argmax(test.label, axis=1)
+        print("---> argmax label:", labels.shape)
+        feat_cols = ['pxl' + str(i) for i in range(test.output.shape[1])]
+        df = pd.DataFrame(test.output, columns=feat_cols)
+        df['label'] = labels
+        df['label'] = df['label'].apply(lambda i: str(i))
+        print('Size of the dataframe: {}'.format(df.shape))
+
+        # rndperm = np.random.permutation(df.shape[0])
+
+        n_sne = 1000
+        test_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "test_tsne_y.pkl.gz")
+        if False and os.path.exists(test_dump):
+            with gzip.GzipFile(test_dump, "rb") as f:
+                Y = pickle.load(f)
+        else:
+            # Y = tsne(test.output, no_dims=2, initial_dims=10)
+            Y = TSNE(n_components=3, perplexity=30.0, verbose=1).fit_transform(df.loc[np.arange(n_sne), feat_cols].values)
+            with gzip.GzipFile(test_dump, "wb") as f:
+                pickle.dump(Y, f)
+        print("---> Y test:", Y.shape)
+        # pd._tslib.
+        # df_tsne = df.loc[np.arange(n_sne), :].copy()
+        # df_tsne['x-tsne'] = Y[:, 0]
+        # df_tsne['y-tsne'] = Y[:, 1]
+        # df_tsne['z-tsne'] = Y[:, 2]
+        colors = np.array(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        colors = [colors[x] for x in labels]
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        ax.scatter(Y[:, 0], Y[:, 1], Y[:, 2], c=colors)
+
+        plt.legend()
+        plt.show()  # savefig('name2d.png')
+
     return MAPs(cfg.DATA.MAP_R).get_maps_by_feature(db, test)
 
 
+def plot_sample_data(df, feat_cols, rndperm):
+    plt.gray()
+    fig = plt.figure(figsize=(16, 7))
+    for i in range(0, 30):
+        ax = fig.add_subplot(3, 10, i + 1, title='Img: ' + str(df.loc[rndperm[i], 'label']))
+        ax.matshow(df.loc[rndperm[i], feat_cols].values.reshape((32, 32)).astype(float))
+
+    plt.show()
+
+
 def main(cfg):
+    # Evaluate using previously saved test/db data
+    if True or (cfg.TRAIN.EVALUATE_MODE and os.path.exists(os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")) \
+                and os.path.exists(os.path.join(cfg.DATA.OUTPUT_DIR, "test.pkl.gz"))):
+        map_val = evaluate(None, None, None, cfg)
+        print('Testing with cached data. map_val: {}'.format(map_val))
+        return 0
+
     # build graph
     model = Model(cfg)
 
@@ -268,4 +357,3 @@ if __name__ == "__main__":
     pprint(config, open(os.path.join(config.DATA.OUTPUT_DIR, 'config.txt'), 'w'))
 
     main(config)
-

@@ -168,7 +168,7 @@ def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
         Y = Y - np.tile(np.mean(Y, 0), (n, 1))
 
         # Compute current value of cost function
-        if (iter + 1) % 10 == 0:
+        if (iter + 1) % 100 == 0:
             C = np.sum(P * np.log(P / Q))
             print("Iteration %d: error is %f" % (iter + 1, C))
 
