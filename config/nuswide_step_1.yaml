@@ -12,7 +12,7 @@ DATA:
     WIDTH_HEIGHT: 64 
     MAP_R: 5000 
     LIST_ROOT: "./data_list/nuswide_81"
-    DATA_ROOT: "/home/liubin/data/nuswide_81"
+    DATA_ROOT: "./data/nuswide_81"
     OUTPUT_DIR: "./output/nuswide81_step_1"
 
 TRAIN:

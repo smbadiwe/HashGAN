@@ -234,7 +234,7 @@ def evaluate(session, model, dataloader, cfg):
         plt.legend()
         plt.show()  # savefig('name2d.png')
 
-    return MAPs(cfg.DATA.MAP_R).get_maps_by_feature(db, test)
+    return MAPs(cfg.DATA.MAP_R).get_maps_by_feature(database=db, query=test)
 
 
 def plot_sample_data(df, feat_cols, rndperm):

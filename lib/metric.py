@@ -10,22 +10,31 @@ class MAPs:
         return np.dot(a, b)
 
     def get_maps_by_feature(self, database, query):
-        print("database:", database.output.shape, "query:", query.output.shape)
         ips = np.dot(query.output, database.output.T)
         ids = np.argsort(-ips, 1)
-        print("ips:", ips.shape, "ids:", ids.shape)
         apx = []
+
+        print("\nR: {}. ips: {}. ids: {}.".format(self.R, ips.shape, ids.shape))
         for i in range(ips.shape[0]):
             label = query.label[i, :].copy()
-            # npz = np.nonzero(label == 0)[0]
-            # if npz.shape[0] > 0:
-            #     print("i:", i, "label:", label, "# apx:", len(apx), "npz:", npz.shape)
+            if i == 0:
+                print("label before reset:", label)
             label[label == 0] = -1
-            imatch = np.sum(database.label[ids[i, :][0: self.R], :] == label, 1) > 0
+            db_label = database.label[ids[i, :][0: self.R], :]
+            if i == 0:
+                print("db_label: {}. label and db_label".format(db_label.shape))
+                print(label)
+                print(db_label)
+            imatch = np.sum(db_label == label, 1) > 0
+            if i == 0:
+                print("\nimatch")
+                print(np.sum(db_label == label, 1))
+                print(imatch)
             rel = np.sum(imatch)
+            px = np.cumsum(imatch).astype(float) / np.arange(1, self.R + 1, 1)
             if rel != 0:
-                # print("i:", i, "rel:", rel)
-                px = np.cumsum(imatch).astype(float) / np.arange(1, self.R + 1, 1)
                 apx.append(np.sum(px * imatch) / rel)
 
-        return np.mean(np.array(apx))
+        apx = np.array(apx)
+
+        return np.mean(apx)
