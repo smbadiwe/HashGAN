@@ -162,14 +162,19 @@ class Model(object):
 
 
 def forward_all(session, model, data_generator, size, cfg):
-    outputs, labels = [], []
+    outputs, labels, inputs = [], [], []
     print("forward_all: size =", size)
-    for image, label in data_generator():
+    for image, label, image_path in data_generator():
         feed_dict = {model.labeled_real_data_holder: image, model.labeled_labels_holder: label}
         outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
         labels.append(label)
-        print("\timg:", image.shape, "- label:", label.shape, "- outputs:", outputs, "- labels:", labels)
-    return EasyDict(output=np.array(outputs).reshape([-1, cfg.MODEL.HASH_DIM])[:size, :],
+        inputs.append(image_path)
+        if len(outputs) == 1:
+            print("\timg:", image.shape, "- label:", label.shape, "- image_path:", image_path.shape)
+
+    print("DONE - forward_all: size =", size)
+    return EasyDict(input=np.array(inputs).reshape((-1,))[:size],
+                    output=np.array(outputs).reshape([-1, cfg.MODEL.HASH_DIM])[:size, :],
                     label=np.array(labels).reshape([-1, cfg.DATA.LABEL_DIM])[:size, :])
 
 
@@ -181,7 +186,7 @@ def evaluate(session, model, dataloader, cfg):
         dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
 
     db_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")
-    if False and os.path.exists(db_dump):
+    if os.path.exists(db_dump):
         with gzip.GzipFile(db_dump, "rb") as f:
             db = pickle.load(f)
     else:
@@ -192,7 +197,7 @@ def evaluate(session, model, dataloader, cfg):
     print("---> db label:", db.label.shape)
 
     test_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "test.pkl.gz")
-    if False and os.path.exists(test_dump):
+    if os.path.exists(test_dump):
         with gzip.GzipFile(test_dump, "rb") as f:
             test = pickle.load(f)
     else:
@@ -254,12 +259,12 @@ def plot_sample_data(df, feat_cols, rndperm):
 
 
 def main(cfg):
-    # Evaluate using previously saved test/db data
-    if True or (cfg.TRAIN.EVALUATE_MODE and os.path.exists(os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")) \
-                and os.path.exists(os.path.join(cfg.DATA.OUTPUT_DIR, "test.pkl.gz"))):
-        map_val = evaluate(None, None, None, cfg)
-        print('Testing with cached data. map_val: {}'.format(map_val))
-        return 0
+    # # Evaluate using previously saved test/db data
+    # if True or (cfg.TRAIN.EVALUATE_MODE and os.path.exists(os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")) \
+    #             and os.path.exists(os.path.join(cfg.DATA.OUTPUT_DIR, "test.pkl.gz"))):
+    #     map_val = evaluate(None, None, None, cfg)
+    #     print('Testing with cached data. map_val: {}'.format(map_val))
+    #     return 0
 
     # build graph
     model = Model(cfg)

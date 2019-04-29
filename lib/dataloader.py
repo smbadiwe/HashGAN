@@ -31,13 +31,22 @@ class Dataset(object):
 
         self._img = [0] * self.n_samples
         self._label = [0] * self.n_samples
+        self._filenames = [None] * self.n_samples
         self._load = [0] * self.n_samples
         self._load_num = 0
         self._status = 0
         self.data = self.img_data
 
-    def read_image_at(self, index):
+    def get_file_path_of_image_at(self, index):
         filename = self.lines[index].strip().split()[0]
+        return os.path.join(self.image_root, filename)
+
+    def read_image_at(self, index):
+        path = self.get_file_path_of_image_at(index)
+        img = cv2.imread(path)
+        return cv2.resize(img, self.img_shape, interpolation=cv2.INTER_AREA)
+
+    def read_image(self, filename):
         path = os.path.join(self.image_root, filename)
         img = cv2.imread(path)
         return cv2.resize(img, self.img_shape, interpolation=cv2.INTER_AREA)
@@ -47,25 +56,29 @@ class Dataset(object):
 
     def img_data(self, index):
         if self._status:
-            return self._img[index, :], self._label[index, :]
+            return self._img[index, :], self._label[index, :], self._filenames[index]
         else:
             ret_img = []
             ret_label = []
+            ret_filenames = []
             for i in index:
                 # noinspection PyBroadException,PyPep8
                 try:
+                    filename = self.lines[i].strip().split()[0]
                     if self.train:
                         if not self._load[i]:
-                            self._img[i] = self.read_image_at(i)
+                            self._img[i] = self.read_image(filename)
                             self._label[i] = self.get_label(i)
+                            self._filenames[i] = filename
                             self._load[i] = 1
                             self._load_num += 1
                         ret_img.append(self._img[i])
                         ret_label.append(self._label[i])
                     else:
                         self._label[i] = self.get_label(i)
-                        ret_img.append(self.read_image_at(i))
+                        ret_img.append(self.read_image(filename))
                         ret_label.append(self._label[i])
+                    ret_filenames.append(filename)
                 except:
                     print('cannot open', self.lines[i])
                     raise
@@ -74,7 +87,8 @@ class Dataset(object):
                 self._status = 1
                 self._img = np.asarray(self._img)
                 self._label = np.asarray(self._label)
-            return np.asarray(ret_img), np.asarray(ret_label)
+                self._filenames = np.asarray(self._filenames)
+            return np.asarray(ret_img), np.asarray(ret_label), np.asarray(ret_filenames)
 
 
 class Dataloader(object):
@@ -99,21 +113,21 @@ class Dataloader(object):
                     _index_in_epoch += self.batch_size
                     # finish one epoch
                     if _index_in_epoch > _dataset.n_samples:
-                        data, label = _dataset.data(_perm[start:])
-                        data1, label1 = _dataset.data(
-                            _perm[:_index_in_epoch - _dataset.n_samples])
+                        data, label, data_paths = _dataset.data(_perm[start:])
+                        data1, label1, data_paths1 = _dataset.data(_perm[:_index_in_epoch - _dataset.n_samples])
                         data = np.concatenate([data, data1], axis=0)
                         label = np.concatenate([label, label1], axis=0)
+                        data_paths = np.concatenate([data_paths, data_paths1], axis=0)
                     else:
                         end = _index_in_epoch
-                        data, label = _dataset.data(_perm[start:end])
+                        data, label, data_paths = _dataset.data(_perm[start:end])
 
                     # n*h*w*c -> n*c*h*w
                     data = np.transpose(data, (0, 3, 1, 2))
                     # bgr -> rgb
                     data = data[:, ::-1, :, :]
                     data = np.reshape(data, (self.batch_size, -1))
-                    yield (data, label)
+                    yield (data, label, data_paths)
 
         return get_epoch
 

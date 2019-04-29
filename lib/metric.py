@@ -26,7 +26,7 @@ class MAPs:
             if verbose:
                 print("db_label: {}. label and db_label".format(db_label.shape))
                 print(label)
-                print(db_label)
+                # print(db_label)
             imatch = np.sum(db_label == label, 1) > 0
             if verbose:
                 print("\nimatch")
@@ -38,13 +38,9 @@ class MAPs:
                 apx.append(np.sum(px * imatch) / rel)
                 if verbose:
                     # get the image that was queried
-                    counter = 0
-                    for image, label in dataloader.db_gen():
-                        if counter == i:
-                            print("img shape:", image.shape, "- label:", label)
-                            break
-                        counter += 1
-
+                    qfile = query.input[i]
+                    dfile = database.input[imatch]
+                    print("rel:", rel, "- q file:", qfile, "- d_file:", dfile.shape)
 
         apx = np.array(apx)
 
