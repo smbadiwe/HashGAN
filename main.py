@@ -175,7 +175,8 @@ def evaluate(session, model, dataloader, cfg):
     import pickle
     import gzip
 
-    # dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
+    if dataloader is None:
+        dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
 
     db_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")
     if os.path.exists(db_dump):
@@ -269,8 +270,6 @@ def main(cfg):
         summary_writer = tf.summary.FileWriter(cfg.DATA.LOG_DIR, session.graph)
 
         dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
-        gen = dataloader.inf_gen(dataloader.train_gen)
-        unlabel_gen = dataloader.inf_gen(dataloader.unlabeled_db_gen)
 
         print_param_size(model.gv_gen, model.gv_disc)
 
@@ -291,6 +290,9 @@ def main(cfg):
             map_val = evaluate(session, model, dataloader, cfg)
             print('map_val: {}'.format(map_val))
             return 0
+
+        gen = dataloader.inf_gen(dataloader.train_gen)
+        unlabel_gen = dataloader.inf_gen(dataloader.unlabeled_db_gen)
 
         print("training")
         for iteration in trange(cfg.TRAIN.ITERS, desc='Training'):
