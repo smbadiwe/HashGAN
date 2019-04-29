@@ -163,10 +163,12 @@ class Model(object):
 
 def forward_all(session, model, data_generator, size, cfg):
     outputs, labels = [], []
+    print("forward_all: size =", size)
     for image, label in data_generator():
         feed_dict = {model.labeled_real_data_holder: image, model.labeled_labels_holder: label}
         outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
         labels.append(label)
+        print("\timg:", image.shape, "- label:", label.shape, "- outputs:", outputs, "- labels:", labels)
     return EasyDict(output=np.array(outputs).reshape([-1, cfg.MODEL.HASH_DIM])[:size, :],
                     label=np.array(labels).reshape([-1, cfg.DATA.LABEL_DIM])[:size, :])
 
@@ -179,7 +181,7 @@ def evaluate(session, model, dataloader, cfg):
         dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
 
     db_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")
-    if os.path.exists(db_dump):
+    if False and os.path.exists(db_dump):
         with gzip.GzipFile(db_dump, "rb") as f:
             db = pickle.load(f)
     else:
@@ -190,7 +192,7 @@ def evaluate(session, model, dataloader, cfg):
     print("---> db label:", db.label.shape)
 
     test_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "test.pkl.gz")
-    if os.path.exists(test_dump):
+    if False and os.path.exists(test_dump):
         with gzip.GzipFile(test_dump, "rb") as f:
             test = pickle.load(f)
     else:
