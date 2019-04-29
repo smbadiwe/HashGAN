@@ -174,6 +174,9 @@ def forward_all(session, model, data_generator, size, cfg):
 def evaluate(session, model, dataloader, cfg):
     import pickle
     import gzip
+
+    # dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
+
     db_dump = os.path.join(cfg.DATA.OUTPUT_DIR, "db.pkl.gz")
     if os.path.exists(db_dump):
         with gzip.GzipFile(db_dump, "rb") as f:
