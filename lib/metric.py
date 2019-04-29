@@ -9,13 +9,26 @@ class MAPs:
     def distance(a, b):
         return np.dot(a, b)
 
-    def get_maps_by_feature(self, database, query, dataloader=None):
+    def get_maps_by_feature(self, database, query, cfg):
         ips = np.dot(query.output, database.output.T)
         ids = np.argsort(-ips, 1)
         apx = []
         verbose = True
         if verbose:
             print("\nR: {}. ips: {}. ids: {}.".format(self.R, ips.shape, ids.shape))
+
+        import matplotlib.pyplot as plt
+
+        def read_image(filename):
+            import os
+            import cv2
+
+            path = os.path.join(cfg.DATA.DATA_ROOT, filename)
+            img = cv2.imread(path)
+            wh = cfg.DATA.WIDTH_HEIGHT
+            img = cv2.resize(img, (wh, wh), interpolation=cv2.INTER_AREA)
+            return np.asarray(img)
+
         for i in range(ips.shape[0]):
             verbose = i == 0
             label = query.label[i, :].copy()
@@ -41,6 +54,7 @@ class MAPs:
                     qfile = query.input[i]
                     dfile = database.input[imatch]
                     print("rel:", rel, "- q file:", qfile, "- d_file:", dfile.shape)
+                    plt.imshow(read_image(qfile))
 
         apx = np.array(apx)
 

@@ -22,7 +22,10 @@ import tensorflow as tf
 
 class Dataset(object):
     def __init__(self, list_path, image_root, train=True, height_width=256):
-        self.lines = open(list_path, 'r').readlines()
+        if list_path:
+            self.lines = open(list_path, 'r').readlines()
+        else:
+            self.lines = []
         self.image_root = image_root
         self.n_samples = len(self.lines)
         self.train = train
